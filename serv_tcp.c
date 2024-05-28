@@ -39,6 +39,7 @@ int main( int argc, char **argv )
       perror("accept err"); exit( 2 ); 
     }
     /* zveza je vzpostavljena, ustvari strezni proces */
+    // spremeni ta del (mi moramo naresti prenos slike)
     if( fork() == 0 ){
       printf("odjemalec: %s:%d\n", inet_ntoa( cliAddr.sin_addr ), ntohs( cliAddr.sin_port ) );
       while( (n = read( sn, buf, sizeof( buf ))) > 0 ){
@@ -46,6 +47,7 @@ int main( int argc, char **argv )
         if( write(sn, buf, n) == -1)
           perror("write err");
       }
+      //do tu
       printf("odjemalec: %s:%d je prekinil povezavo\n", inet_ntoa( cliAddr.sin_addr ), ntohs( cliAddr.sin_port ));
       close( sn );
       exit( 0 );

@@ -1,77 +1,106 @@
+/* Povezaven - TCP streznik */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h> 
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
-#include <fcntl.h> // for open
-#include <sys/stat.h> // for mkfifo
+#include <fcntl.h> // For open
+#include <errno.h>
 
 #define PORT_NUMBER 55000
-#define FIFO_NAME "v_fifo"
+#define FIFO_PATH "v_fifo" // Path to the FIFO file
 
-int main( int argc, char **argv )
-{ 
-  int    n, sd, initClient( char * );
-  char   buf[128];
-  int    fifo_fd;
+int main(int argc, char **argv)
+{
+    struct sockaddr_in cliAddr;
+    socklen_t size;
+    char buf[128];
 
-  if( argc != 2 ){
-    printf("Usage: %s server_name\n", argv[0]);
-    exit( 1 );
-  }
+    int initServer(char *);
+    int sd, sn, n;
 
-  // Initialize the client connection
-  if( (sd = initClient( argv[1] )) < 0 ){
-    printf("Initialization error\n");  
-    exit( 1 );
-  }
-  else{
-    // Open FIFO for reading
-    if ((fifo_fd = open(FIFO_NAME, O_RDONLY)) < 0) {
-      perror("FIFO open error");
-      exit(1);
+    if (argc != 2)
+    {
+        printf("Uporaba: %s ime_naprave\n", argv[0]);
+        exit(1);
     }
-
-    printf("Reading from FIFO and sending video stream to server\n");
-
-    // Read from FIFO and send data to the server
-    while((n = read(fifo_fd, buf, sizeof(buf))) > 0) {
-      if( write(sd, buf, n) == -1) {
-        perror("write error");
-        break;
-      }
+    if ((sd = initServer(argv[1])) < 0)
+    {
+        printf("Napaka: init server\n");
+        exit(1);
     }
+    listen(sd, 5);
+    alarm(60); /* koncaj po eni minuti */
 
-    if (n == -1) {
-      perror("read error");
+    while (1)
+    {
+        size = sizeof(cliAddr);
+        memset(&cliAddr, 0, size);
+
+        if ((sn = accept(sd, (struct sockaddr *)&cliAddr, &size)) < 0)
+        {
+            perror("accept err");
+            exit(2);
+        }
+        /* zveza je vzpostavljena, ustvari strezni proces */
+        if (fork() == 0)
+        {
+            printf("odjemalec: %s:%d\n", inet_ntoa(cliAddr.sin_addr), ntohs(cliAddr.sin_port));
+
+            int fifo_fd = open(FIFO_PATH, O_RDONLY);
+            if (fifo_fd < 0)
+            {
+                perror("open fifo err");
+                close(sn);
+                exit(3);
+            }
+
+            while ((n = read(fifo_fd, buf, sizeof(buf))) > 0)
+            {
+                if (write(sn, buf, n) == -1)
+                {
+                    perror("write err");
+                    break;
+                }
+            }
+
+            if (n < 0)
+            {
+                perror("read fifo err");
+            }
+
+            close(fifo_fd);
+            printf("odjemalec: %s:%d je prekinil povezavo\n", inet_ntoa(cliAddr.sin_addr), ntohs(cliAddr.sin_port));
+            close(sn);
+            exit(0);
+        }
+        close(sn);
     }
-
-    close(fifo_fd);
-    close(sd);
-  }
-
-  exit( 0 );
 }
 
-int initClient( char *hostName )
+int initServer(char *hostName)
 {
-  struct sockaddr_in  servAddr;
-  struct hostent     *host;
-  int    sd;
-  
-  if( ( host = gethostbyname( hostName )) == NULL) return( -1 );
-  memset( &servAddr, 0, sizeof(servAddr));
-  memcpy( &servAddr.sin_addr, host->h_addr, host->h_length );
-  servAddr.sin_family = host->h_addrtype;
-  servAddr.sin_port   = htons( PORT_NUMBER );
+    struct sockaddr_in servAddr;
+    struct hostent *host;
+    int sd;
 
-  printf("Server: %s, ", host -> h_name);
-  printf("%s:%d\n", inet_ntoa( servAddr.sin_addr ), PORT_NUMBER);
-  if( (sd = socket(AF_INET,SOCK_STREAM,0)) < 0 ) return( -2 );
-  if( connect(sd, (struct sockaddr *)&servAddr,sizeof(servAddr)) < 0) return( -3 );
-  return( sd );
+    if ((host = gethostbyname(hostName)) == NULL)
+        return (-1);
+    memset(&servAddr, 0, sizeof(servAddr));
+    memcpy(&servAddr.sin_addr, host->h_addr, host->h_length);
+    servAddr.sin_family = host->h_addrtype;
+    servAddr.sin_port = htons(PORT_NUMBER);
+
+    printf("streznik: %s, ", host->h_name);
+    printf("%s:%d\n", inet_ntoa(servAddr.sin_addr), PORT_NUMBER);
+
+    if ((sd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        return (-2);
+    if (bind(sd, (struct sockaddr *)&servAddr, sizeof(servAddr)) < 0)
+        return (-3);
+    return (sd);
 }

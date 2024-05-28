@@ -1,4 +1,4 @@
-//./v_cli_tcp ime_streznika | gst-launch-1.0 fdsrc ! decodebin ! videoconvert ! autovideosink
+//./v_cli_tcp 10.8.130.73 | gst-launch-1.0 fdsrc ! decodebin ! videoconvert ! autovideosink
 
 /* Povezaven - TCP odjemalec */
 

@@ -1,4 +1,4 @@
-// ./v_cli_udp ime_streznika | gst-launch-1.0 fdsrc ! decodebin ! videoconvert ! autovideosink
+// ./v_cli_udp 10.8.130.73 | gst-launch-1.0 fdsrc ! decodebin ! videoconvert ! autovideosink
 
 /* UDP Client to receive video stream */
 #include <stdio.h>

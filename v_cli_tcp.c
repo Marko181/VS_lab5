@@ -38,6 +38,9 @@ int main(int argc, char **argv)
         // Read from the socket and write to stdout
         while ((n = read(sd, buf, sizeof(buf))) > 0)
         {
+            // STDOUT_FILENO is a file descriptor, using write(STDOUT_FILENO,...) writes
+            // directly in terminal or any process that reads from the standard output of the v_cli_tcp program
+            // we use | gst-launch-1.0 fdsrc... when running the v_cli_tcp so it gets the STDOUT_FILENO as file source
             if (write(STDOUT_FILENO, buf, n) == -1)
             {
                 perror("write stdout err");
